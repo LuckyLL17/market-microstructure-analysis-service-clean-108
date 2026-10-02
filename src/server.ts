@@ -1,10 +1,14 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { MarketEngine } from './engine.js';
 import { OrderBook } from './order-book.js';
 import { MarketEvent } from './types.js';
 
-const app = Fastify({ logger: true });
+const isMain = Boolean(process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href);
+const app = Fastify({ logger: isMain });
+export default app;
 await app.register(cors, { origin: true });
 const engine = new MarketEngine();
 type ReplaySession = { id: string; symbol: string; tradingDay: string; cursor: number; status: string; speed: number; eventCount: number; lastEvent?: MarketEvent; book: OrderBook };
@@ -26,4 +30,4 @@ app.get('/api/sandbox/strategies/:strategyId/events', async request => { const s
 app.get('/api/anomalies', async () => engine.anomalies);
 app.get('/api/metrics', async request => { const { symbol = 'ALPHA' } = request.query as { symbol?: string }; return { analytics: engine.analytics(symbol), eventCount: engine.events.length, fillCount: engine.fills.length, anomalyCount: engine.anomalies.length, bookStats: engine.book(symbol).getStats() }; });
 
-await app.listen({ port: 6190, host: '127.0.0.1' });
+if (isMain) await app.listen({ port: 6190, host: '127.0.0.1' });
