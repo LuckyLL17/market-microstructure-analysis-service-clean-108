@@ -12,10 +12,13 @@ export class MarketEngine {
 
   constructor() { this.seed(); }
   book(symbol: string): OrderBook { let book = this.books.get(symbol); if (!book) { book = new OrderBook(symbol); this.books.set(symbol, book); } return book; }
+  eventsForDay(symbol: string, tradingDay: string): MarketEvent[] {
+    return this.events.filter(item => item.symbol === symbol && item.tradingDay === tradingDay);
+  }
   ingest(event: MarketEvent): { accepted: boolean; anomaly?: Record<string, unknown> } {
-    const key = `${event.symbol}:${event.sequence}`;
+    const key = `${event.symbol}:${event.tradingDay}:${event.sequence}`;
     if (this.seenSequences.has(key)) return { accepted: false, anomaly: this.recordAnomaly('duplicate_sequence', event, 'medium') };
-    const previous = this.events.filter(item => item.symbol === event.symbol).at(-1);
+    const previous = this.eventsForDay(event.symbol, event.tradingDay).at(-1);
     if (previous && event.sequence > previous.sequence + 1) this.recordAnomaly('sequence_gap', event, 'high');
     if (previous && event.timestamp < previous.timestamp) this.recordAnomaly('out_of_order_timestamp', event, 'medium');
     this.seenSequences.add(key); this.events.push(event); this.events.sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.sequence - b.sequence); this.book(event.symbol).apply(event);
